@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/redt1de/gimp/pkg/gokrb5/credentials"
 	"github.com/redt1de/gimp/pkg/gokrb5/crypto"
 	"github.com/redt1de/gimp/pkg/gokrb5/crypto/etype"
 	"github.com/redt1de/gimp/pkg/gokrb5/iana/errorcode"
@@ -119,7 +120,7 @@ func setPAData(cl *Client, krberr *messages.KRBError, ASReq *messages.ASReq) err
 		if err != nil {
 			return krberror.Errorf(err, krberror.KRBMsgError, "error creating PAEncTSEnc for Pre-Authentication")
 		}
-		paEncTS, err := crypto.GetEncryptedData(paTSb, key, keyusage.AS_REQ_PA_ENC_TIMESTAMP, kvno)
+		paEncTS, err := crypto.GetEncryptedData(paTSb, key, keyusage.AS_REQ_PA_ENC_TIMESTAMP, kvno) //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< hash auth fails here.
 		if err != nil {
 			return krberror.Errorf(err, krberror.EncryptingError, "error encrypting pre-authentication timestamp")
 		}
@@ -179,4 +180,18 @@ Loop:
 		return
 	}
 	return etype, nil
+}
+
+func (cl *Client) GetTGTAsCCache() (*credentials.CCache, error) {
+	ASReq, err := messages.NewASReqForTGT(cl.Credentials.Domain(), cl.Config, cl.Credentials.CName())
+	if err != nil {
+		return nil, err
+	}
+
+	ASRep, err := cl.ASExchange(cl.Credentials.Domain(), ASReq, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return ASRep.ToCCache()
 }

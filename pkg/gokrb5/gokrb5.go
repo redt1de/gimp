@@ -44,15 +44,12 @@ import (
 func MakeKerbConfig(domain string, dc string, etypeid int32) (*config.Config, error) {
 	c := config.New()
 	c.LibDefaults.DefaultRealm = strings.ToUpper(domain)
-	c.LibDefaults.PermittedEnctypeIDs = []int32{etypeid}
-	c.LibDefaults.DefaultTGSEnctypeIDs = []int32{etypeid}
-	c.LibDefaults.DefaultTGSEnctypeIDs = append(c.LibDefaults.DefaultTGSEnctypeIDs, etypeID.RC4_HMAC)
-	c.LibDefaults.DefaultTktEnctypeIDs = []int32{etypeid}
-	// fmt.Println(c.LibDefaults.PermittedEnctypeIDs)
-	// fmt.Println(c.LibDefaults.DefaultTGSEnctypeIDs)
-	// fmt.Println(c.LibDefaults.DefaultTktEnctypeIDs)
+	// c.LibDefaults.PermittedEnctypeIDs = []int32{etypeid}
+	// c.LibDefaults.DefaultTGSEnctypeIDs = []int32{etypeid}
+	// c.LibDefaults.DefaultTGSEnctypeIDs = append(c.LibDefaults.DefaultTGSEnctypeIDs, etypeID.RC4_HMAC)
+	// c.LibDefaults.DefaultTktEnctypeIDs = []int32{etypeid}
+	// c.LibDefaults.DefaultTktEnctypeIDs = append(c.LibDefaults.DefaultTktEnctypeIDs, etypeID.RC4_HMAC)
 
-	// return nil, nil
 	c.LibDefaults.UDPPreferenceLimit = 1
 
 	c.LibDefaults.Proxiable = true
@@ -107,8 +104,8 @@ func GetKerberosClient(domain string, dc string, username string, password strin
 	} else if password != "" {
 		cl = client.NewWithPassword(username, domain, password, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
 	} else if ntlm != "" {
-		log.Fatal("NTLM authentication not yet implemented FIXME")
-		// cl = client.NewWithHash(username, domain, ntlm, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
+
+		cl = client.NewWithHash(username, domain, ntlm, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
 	}
 
 	return cl

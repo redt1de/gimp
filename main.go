@@ -4,6 +4,7 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/redt1de/gimp/pkg/gokrb5"
@@ -11,29 +12,40 @@ import (
 )
 
 // TODO:
-// move over the socks code from mfdooom
-// test hash auth
+// test hash auth, works but had to hardcode the etypeid in crypto.GetKeyFromNTLMHash() to 23
 // implement GetTGT / GetTGTCCache
 // test ldap with st
 // mess with smb
 
+const (
+	test_user = "jon.snow"
+	test_pass = "iknownothing"
+
+	test_hash        = "b8d76e56e9dac90539aff05e3ccb1755"
+	test_impersonate = "eddard.stark"
+)
+
 func main() {
-	cl := gokrb5.GetKerberosClient("NORTH.SEVENKINGDOMS.LOCAL", "winterfell.NORTH.SEVENKINGDOMS.LOCAL", "jon.snow", "iknownothing", "", false, "aes256-cts-hmac-sha1-96", "", 0)
+	// cl := gokrb5.GetKerberosClient("NORTH.SEVENKINGDOMS.LOCAL", "winterfell.NORTH.SEVENKINGDOMS.LOCAL", "jon.snow", "iknownothing", "", false, "aes256-cts-hmac-sha1-96", "", 0)
+	cl := gokrb5.GetKerberosClient("NORTH.SEVENKINGDOMS.LOCAL", "winterfell.NORTH.SEVENKINGDOMS.LOCAL", "jon.snow", "", test_hash, false, "aes256-cts-hmac-sha1-96", "", 0)
+
+	fmt.Println(cl.Credentials.HasHash(), cl.Credentials.HasPassword())
 	err := cl.Login()
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = cl.Login()
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	cc, err := cl.GetServiceTicketAsCCache("CIFS/winterfell.NORTH.SEVENKINGDOMS.LOCAL")
+	cctgt, err := cl.GetTGTAsCCache()
 	if err != nil {
 		log.Fatal(err)
 	}
-	cc.Export("/tmp/ccache")
-	// spew.Dump(mt, ek)
+	cctgt.Export("/tmp/cctgt")
+
+	ccst, err := cl.GetServiceTicketAsCCache("CIFS/winterfell.NORTH.SEVENKINGDOMS.LOCAL")
+	if err != nil {
+		log.Fatal(err)
+	}
+	ccst.Export("/tmp/ccst")
 
 	imper := types.PrincipalName{
 		NameType: 1,
@@ -41,31 +53,11 @@ func main() {
 			"eddard.stark",
 		},
 	}
-	cc2, err := cl.GetServiceTicketForUserAsCCache("CIFS/winterfell.NORTH.SEVENKINGDOMS.LOCAL", "NORTH.SEVENKINGDOMS.LOCAL", imper)
+	ccsti, err := cl.GetServiceTicketForUserAsCCache("CIFS/winterfell.NORTH.SEVENKINGDOMS.LOCAL", "NORTH.SEVENKINGDOMS.LOCAL", imper)
 	if err != nil {
 		log.Fatal(err)
 	}
-	cc2.Export("/tmp/ccache2")
-	// fmt.Println(mt2.SName.NameString)
-	// spew.Dump(cl, ek2)
-
-	// a, err := gokrb5.GetTGTCCache("NORTH.SEVENKINGDOMS.LOCAL", "jon.snow", "iknownothing", "", false, "winterfell.NORTH.SEVENKINGDOMS.LOCAL")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// a.Export("/tmp/a.tgt.ccache")
-
-	// b, err := gokrb5.GetSTCCache("NORTH.SEVENKINGDOMS.LOCAL", "jon.snow", "iknownothing", "", false, "winterfell.NORTH.SEVENKINGDOMS.LOCAL", "CIFS/winterfell.NORTH.SEVENKINGDOMS.LOCAL", "")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// b.Export("/tmp/b.st.ccache")
-
-	// c, err := gokrb5.GetSTCCache("NORTH.SEVENKINGDOMS.LOCAL", "jon.snow", "iknownothing", "", false, "winterfell.NORTH.SEVENKINGDOMS.LOCAL", "CIFS/winterfell.NORTH.SEVENKINGDOMS.LOCAL", "eddard.stark")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// c.Export("/tmp/c.st-imp.ccache")
+	ccsti.Export("/tmp/ccsti")
 
 	// testLDAPwST()
 	// return
