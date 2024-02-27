@@ -115,15 +115,17 @@ func setPAData(cl *Client, krberr *messages.KRBError, ASReq *messages.ASReq) err
 				return krberror.Errorf(err, krberror.EncryptingError, "error getting key from credentials")
 			}
 		}
+
 		// Generate the PA data
 		paTSb, err := types.GetPAEncTSEncAsnMarshalled()
 		if err != nil {
 			return krberror.Errorf(err, krberror.KRBMsgError, "error creating PAEncTSEnc for Pre-Authentication")
 		}
-		paEncTS, err := crypto.GetEncryptedData(paTSb, key, keyusage.AS_REQ_PA_ENC_TIMESTAMP, kvno) //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< hash auth fails here.
+		paEncTS, err := crypto.GetEncryptedData(paTSb, key, keyusage.AS_REQ_PA_ENC_TIMESTAMP, kvno)
 		if err != nil {
 			return krberror.Errorf(err, krberror.EncryptingError, "error encrypting pre-authentication timestamp")
 		}
+
 		pb, err := paEncTS.Marshal()
 		if err != nil {
 			return krberror.Errorf(err, krberror.EncodingError, "error marshaling the PAEncTSEnc encrypted data")

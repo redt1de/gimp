@@ -146,8 +146,8 @@ func GetKeyFromNTLMHash(hash string, cname types.PrincipalName, realm string, et
 		panic(err)
 	}
 	key = types.EncryptionKey{
-		// KeyType:  etypeID,
-		KeyType:  23, // TODO: pencil whipped RC4_HMAC.  if not ntlm auth doesnt work
+		KeyType: etypeID,
+		// KeyType:  23, // TODO: pencil whipped RC4_HMAC.  if not ntlm auth doesnt work
 		KeyValue: k,
 	}
 	return key, et, nil

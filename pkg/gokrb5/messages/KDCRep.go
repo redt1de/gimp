@@ -223,6 +223,7 @@ func (k *ASRep) DecryptEncPart(c *credentials.Credentials) (types.EncryptionKey,
 		}
 	}
 	if c.HasHash() {
+		// fmt.Println("KDCRep.go:226:", k.EncPart.EType)
 		key, _, err = crypto.GetKeyFromNTLMHash(c.Hash(), k.CName, k.CRealm, k.EncPart.EType)
 		if err != nil {
 			return key, krberror.Errorf(err, krberror.DecryptingError, "error decrypting AS_REP encrypted part")

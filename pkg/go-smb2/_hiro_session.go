@@ -9,16 +9,14 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
-	"encoding/binary"
 	"fmt"
 	"hash"
-	"os"
 
-	"github.com/redt1de/gimp/pkg/go-smb2/internal/crypto/ccm"
-	"github.com/redt1de/gimp/pkg/go-smb2/internal/crypto/cmac"
+	"github.com/hirochachacha/go-smb2/internal/crypto/ccm"
+	"github.com/hirochachacha/go-smb2/internal/crypto/cmac"
 
-	. "github.com/redt1de/gimp/pkg/go-smb2/internal/erref"
-	. "github.com/redt1de/gimp/pkg/go-smb2/internal/smb2"
+	. "github.com/hirochachacha/go-smb2/internal/erref"
+	. "github.com/hirochachacha/go-smb2/internal/smb2"
 )
 
 func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error) {
@@ -58,7 +56,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 
 	p := PacketCodec(pkt)
 
-	if NtStatus(p.Status()) != STATUS_MORE_PROCESSING_REQUIRED && NtStatus(p.Status()) != STATUS_SUCCESS {
+	if NtStatus(p.Status()) != STATUS_MORE_PROCESSING_REQUIRED {
 		return nil, &InvalidResponseError{fmt.Sprintf("expected status: %v, got %v", STATUS_MORE_PROCESSING_REQUIRED, NtStatus(p.Status()))}
 	}
 
@@ -100,12 +98,10 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			h.Write(rr.pkt)
 			h.Sum(s.preauthIntegrityHashValue[:0])
 
-			if NtStatus(p.Status()) == STATUS_MORE_PROCESSING_REQUIRED {
-				h.Reset()
-				h.Write(s.preauthIntegrityHashValue[:])
-				h.Write(pkt)
-				h.Sum(s.preauthIntegrityHashValue[:0])
-			}
+			h.Reset()
+			h.Write(s.preauthIntegrityHashValue[:])
+			h.Write(pkt)
+			h.Sum(s.preauthIntegrityHashValue[:0])
 		}
 
 	}
@@ -115,18 +111,17 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 		return nil, &InvalidResponseError{err.Error()}
 	}
 
+	req.SecurityBuffer = outputToken
+
+	req.CreditRequestResponse = 0
+
 	// We set session before sending packet just for setting hdr.SessionId.
 	// But, we should not permit access from receiver until the session information is completed.
 	conn.session = s
 
-	if NtStatus(p.Status()) == STATUS_MORE_PROCESSING_REQUIRED {
-		req.SecurityBuffer = outputToken
-		req.CreditRequestResponse = 0
-
-		rr, err = s.send(req, ctx)
-		if err != nil {
-			return nil, err
-		}
+	rr, err = s.send(req, ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	if s.sessionFlags&(SMB2_SESSION_FLAG_IS_GUEST|SMB2_SESSION_FLAG_IS_NULL) == 0 {
@@ -168,14 +163,12 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				return nil, &InternalError{err.Error()}
 			}
 		case SMB311:
-			if NtStatus(p.Status()) == STATUS_MORE_PROCESSING_REQUIRED {
-				switch conn.preauthIntegrityHashId {
-				case SHA512:
-					h := sha512.New()
-					h.Write(s.preauthIntegrityHashValue[:])
-					h.Write(rr.pkt)
-					h.Sum(s.preauthIntegrityHashValue[:0])
-				}
+			switch conn.preauthIntegrityHashId {
+			case SHA512:
+				h := sha512.New()
+				h.Write(s.preauthIntegrityHashValue[:])
+				h.Write(rr.pkt)
+				h.Sum(s.preauthIntegrityHashValue[:0])
 			}
 
 			signingKey := kdf(sessionKey, []byte("SMBSigningKey\x00"), s.preauthIntegrityHashValue[:])
@@ -190,11 +183,6 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 
 			encryptionKey := kdf(sessionKey, []byte("SMBC2SCipherKey\x00"), s.preauthIntegrityHashValue[:])
 			decryptionKey := kdf(sessionKey, []byte("SMBS2CCipherKey\x00"), s.preauthIntegrityHashValue[:])
-
-			if os.Getenv("SMB_LOGKEYS") == "1" {
-				sess := binary.LittleEndian.AppendUint64(nil, s.sessionId)
-				fmt.Printf("%x,%x\n", sess, sessionKey)
-			}
 
 			switch s.cipherId {
 			case AES128CCM:
@@ -235,74 +223,29 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				}
 			}
 		}
-		s.sessionFlags |= SMB2_SESSION_FLAG_ENCRYPT_DATA
 	}
 
-	var kerb bool
-	switch i.(type) {
-	case *NTLMInitiator:
-		kerb = false
-	case *KerberosInitiator:
-		kerb = true
-	default:
-		kerb = false
+	pkt, err = s.recv(rr)
+	if err != nil {
+		return nil, err
 	}
 
-	//TODO:  ntlm auth failes with this block of code. hiro code works, just need to figure out why. or choose kerb as needed
-	if kerb {
-		if NtStatus(p.Status()) == STATUS_MORE_PROCESSING_REQUIRED {
-			req.SecurityBuffer = outputToken
-			req.CreditRequestResponse = 0
-
-			rr, err = s.send(req, ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			pkt, err = s.recv(rr)
-			if err != nil {
-				return nil, err
-			}
-
-			res, err = accept(SMB2_SESSION_SETUP, pkt)
-			if err != nil {
-				return nil, err
-			}
-
-			r = SessionSetupResponseDecoder(res)
-			if r.IsInvalid() {
-				return nil, &InvalidResponseError{"broken session setup response format"}
-			}
-
-			if NtStatus(PacketCodec(pkt).Status()) != STATUS_SUCCESS {
-				return nil, &InvalidResponseError{"broken session setup response format"}
-			}
-
-			s.sessionFlags = r.SessionFlags()
-		}
-	} else { // not kerb
-
-		pkt, err = s.recv(rr)
-		if err != nil {
-			return nil, err
-		}
-
-		res, err = accept(SMB2_SESSION_SETUP, pkt)
-		if err != nil {
-			return nil, err
-		}
-
-		r = SessionSetupResponseDecoder(res)
-		if r.IsInvalid() {
-			return nil, &InvalidResponseError{"broken session setup response format"}
-		}
-
-		if NtStatus(PacketCodec(pkt).Status()) != STATUS_SUCCESS {
-			return nil, &InvalidResponseError{"broken session setup response format"}
-		}
-
-		s.sessionFlags = r.SessionFlags()
+	res, err = accept(SMB2_SESSION_SETUP, pkt)
+	if err != nil {
+		return nil, err
 	}
+
+	r = SessionSetupResponseDecoder(res)
+	if r.IsInvalid() {
+		return nil, &InvalidResponseError{"broken session setup response format"}
+	}
+
+	if NtStatus(PacketCodec(pkt).Status()) != STATUS_SUCCESS {
+		return nil, &InvalidResponseError{"broken session setup response format"}
+	}
+
+	s.sessionFlags = r.SessionFlags()
+
 	// now, allow access from receiver
 	s.enableSession()
 

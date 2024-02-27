@@ -491,6 +491,7 @@ func (conn *conn) runSender() {
 		case <-conn.wdone:
 			return
 		case pkt := <-conn.write:
+			conn.t.SetWriteDeadline(time.Now().Add(30 * time.Second))
 			_, err := conn.t.Write(pkt)
 
 			conn.werr <- err
@@ -509,7 +510,7 @@ func (conn *conn) runReciever() {
 			goto exit
 		}
 
-		pkt := make([]byte, n)
+		pkt := make([]byte, n, n+16)
 
 		_, e = conn.t.Read(pkt)
 		if e != nil {
@@ -579,7 +580,7 @@ func (conn *conn) runReciever() {
 exit:
 	select {
 	case <-conn.rdone:
-		err = nil
+		err = fmt.Errorf("session closed due to: %w", err)
 	default:
 		logger.Println("error:", err)
 	}

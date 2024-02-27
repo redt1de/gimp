@@ -26,3 +26,7 @@ SMB is based on a fork of [https://github.com/hirochachacha/go-smb2](https://git
 
 LDAP is based on a fork of [https://github.com/go-ldap/ldap/v3](https://github.com/go-ldap/ldap/v3) -> [https://github.com/synzack/ldap/v3](https://github.com/synzack/ldap/v3)
 
+
+
+#### Notes:
+- had to tweak github.com/lorenz/go-smb2/session.go to make ntlm and kerb both work. line 241 adds a type assertion to choose between kerb path and original hirochachacha ntlm path. this needs testing, and figure out a better way to do it.

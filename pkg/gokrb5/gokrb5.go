@@ -44,11 +44,12 @@ import (
 func MakeKerbConfig(domain string, dc string, etypeid int32) (*config.Config, error) {
 	c := config.New()
 	c.LibDefaults.DefaultRealm = strings.ToUpper(domain)
-	// c.LibDefaults.PermittedEnctypeIDs = []int32{etypeid}
-	// c.LibDefaults.DefaultTGSEnctypeIDs = []int32{etypeid}
-	// c.LibDefaults.DefaultTGSEnctypeIDs = append(c.LibDefaults.DefaultTGSEnctypeIDs, etypeID.RC4_HMAC)
-	// c.LibDefaults.DefaultTktEnctypeIDs = []int32{etypeid}
-	// c.LibDefaults.DefaultTktEnctypeIDs = append(c.LibDefaults.DefaultTktEnctypeIDs, etypeID.RC4_HMAC)
+	c.LibDefaults.PermittedEnctypeIDs = []int32{etypeid}
+	c.LibDefaults.PermittedEnctypeIDs = append(c.LibDefaults.PermittedEnctypeIDs, etypeID.RC4_HMAC)
+	c.LibDefaults.DefaultTGSEnctypeIDs = []int32{etypeid}
+	c.LibDefaults.DefaultTGSEnctypeIDs = append(c.LibDefaults.DefaultTGSEnctypeIDs, etypeID.RC4_HMAC)
+	c.LibDefaults.DefaultTktEnctypeIDs = []int32{etypeid}
+	c.LibDefaults.DefaultTktEnctypeIDs = append(c.LibDefaults.DefaultTktEnctypeIDs, etypeID.RC4_HMAC)
 
 	c.LibDefaults.UDPPreferenceLimit = 1
 
@@ -87,6 +88,9 @@ func GetKerberosClient(domain string, dc string, username string, password strin
 		for k, v := range etypeID.ETypesByName {
 			fmt.Printf("%s: %d\n", k, v)
 		}
+	}
+	if ntlm != "" {
+		etypeid = etypeID.RC4_HMAC
 	}
 
 	domain = strings.ToUpper(domain)
