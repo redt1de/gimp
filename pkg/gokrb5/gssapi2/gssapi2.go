@@ -49,13 +49,20 @@ func (k *GSSAPI) InitSecContext(target string, token []byte, isGSSDelegCreds boo
 		var tkt messages.Ticket
 		var err, authErr error
 		var auth types.Authenticator
-		if k.User.NameType == 0 {
-			tkt, k.sesskey, err = k.Client.GetServiceTicket(target)
-			auth, authErr = types.NewAuthenticator(k.Client.Credentials.Domain(), k.Client.Credentials.CName())
-		} else {
-			tkt, k.sesskey, err = k.Client.GetServiceTicketForUser(target, k.Client.Credentials.Realm(), k.User)
+		ok, s := k.Client.SessionHasSPN(target) // added this check so we can pull ST from a ccache file
+		if ok {
+			tkt, k.sesskey, _ = k.Client.GetCachedTicket(s)
 			auth, authErr = types.NewAuthenticator(k.Client.Credentials.Realm(), k.User)
+		} else {
+			if k.User.NameType == 0 {
+				tkt, k.sesskey, err = k.Client.GetServiceTicket(target)
+				auth, authErr = types.NewAuthenticator(k.Client.Credentials.Domain(), k.Client.Credentials.CName())
+			} else {
+				tkt, k.sesskey, err = k.Client.GetServiceTicketForUser(target, k.Client.Credentials.Realm(), k.User)
+				auth, authErr = types.NewAuthenticator(k.Client.Credentials.Realm(), k.User)
+			}
 		}
+
 		if err != nil {
 			return nil, false, fmt.Errorf("unable to obtain service ticket: %w", err)
 		}

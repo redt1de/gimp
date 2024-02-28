@@ -108,6 +108,14 @@ func (cl *Client) GetServiceTicket(spn string) (messages.Ticket, types.Encryptio
 	if err != nil {
 		return tkt, skey, err
 	}
+	cl.cache.addEntry(
+		tgsRep.Ticket,
+		tgsRep.DecryptedEncPart.AuthTime,
+		tgsRep.DecryptedEncPart.StartTime,
+		tgsRep.DecryptedEncPart.EndTime,
+		tgsRep.DecryptedEncPart.RenewTill,
+		tgsRep.DecryptedEncPart.Key,
+	)
 	return tgsRep.Ticket, tgsRep.DecryptedEncPart.Key, nil
 }
 

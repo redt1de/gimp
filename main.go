@@ -13,6 +13,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/redt1de/gimp/pkg/go-smb2"
+	"github.com/redt1de/gimp/pkg/goimpacket"
 	"github.com/redt1de/gimp/pkg/gokrb5"
 	"github.com/redt1de/gimp/pkg/gokrb5/client"
 	"github.com/redt1de/gimp/pkg/gokrb5/credentials"
@@ -21,7 +22,9 @@ import (
 )
 
 // TODO:
+// get rid of the etypeid in MakeKerbConfig/Getkerbclient
 // mess with smb
+// smb needs ntlmv1 support
 
 const (
 	test_domain      = "NORTH.SEVENKINGDOMS.LOCAL"
@@ -36,35 +39,76 @@ const (
 )
 
 func main() {
+	testSMBConn()
+	// testLdapConn()
+	// testSmbKerbST()
 	// testTickets()
 	// testLDAPwST()
-	fmt.Println("testing NTLM...")
-	testSmbNtlm()
-	fmt.Println("testing Kerberos...")
-	testSmbKerb()
+	// testSmbNtlm()
+	// testSmbKerb()
 
 	// cmd.Execute()
 }
 
-const (
-	UnknownSMB = 0x0
-	SMB2       = 0x2FF
-	SMB202     = 0x202
-	SMB210     = 0x210
-	SMB300     = 0x300
-	SMB302     = 0x302
-	SMB311     = 0x311
-)
+func testSMBConn() {
+	fmt.Println("[+] Testing SMB...")
+	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", true, "/tmp/jstgt.ccache", test_dc) // krb TGT
+	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", true, "/tmp/jscifs.ccache", test_dc) // krb ST
+	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, "", test_hash, true, "", test_dc) // krb hash
+	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", true, "", test_dc) // krb pass
+	l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, "", test_hash, false, "", test_dc) // ntlm hash
+	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", false, "", test_dc) // ntlm pass
+	err := l.Login()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	names, err := l.SmbConn.ListSharenames()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, name := range names {
+		fmt.Println(name)
+	}
+
+}
+
+func testLdapConn() {
+	fmt.Println("[+] Testing LDAP...")
+	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", true, "/tmp/jstgt.ccache", test_dc, true) // krb TGT
+	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", true, "/tmp/jsldap.ccache", test_dc, true) // krb ST
+	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, "", test_hash, true, "", test_dc, true) // krb hash
+	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", true, "", test_dc, true) // krb pass
+	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, "", test_hash, false, "", test_dc, true) // ntlm hash
+	l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", false, "", test_dc, true) // ntlm pass
+	err := l.Login()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sr, err := l.Conn.Search(ldap.NewSearchRequest(
+		"",
+		ldap.ScopeBaseObject, ldap.NeverDerefAliases, 0, 0, false,
+		"(objectClass=*)",
+		[]string{"defaultNamingContext"},
+		nil,
+	))
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(sr.Entries[0].GetAttributeValue("defaultNamingContext"))
+
+}
 
 func testSmbNtlm() {
+	fmt.Println("[+] Testing SMB ntlm...")
 	conn, err := net.Dial("tcp", "192.168.56.11:445")
 	// conn, err := net.Dial("tcp", "192.168.56.1:445")
 	if err != nil {
 		panic(err)
 	}
 	defer conn.Close()
-
-	// session.go:244
 
 	hashhex, err := hex.DecodeString(test_hash)
 	if err != nil {
@@ -74,8 +118,9 @@ func testSmbNtlm() {
 
 	d := &smb2.Dialer{
 		Initiator: &smb2.NTLMInitiator{
-			User:     "JON.SNOW",
-			Password: "iknownothing",
+			User: "JON.SNOW",
+			// Password: "iknownothing",
+			Hash: hashhex,
 		},
 	}
 
@@ -96,6 +141,7 @@ func testSmbNtlm() {
 }
 
 func testSmbKerb() {
+	fmt.Println("[+] Testing SMB kerb pass...")
 	conn, err := net.Dial("tcp", "192.168.56.11:445")
 	// conn, err := net.Dial("tcp", "192.168.56.1:445")
 	if err != nil {
@@ -107,8 +153,8 @@ func testSmbKerb() {
 
 	////////////////////////
 	// kerberos auth works.
-	cl := gokrb5.GetKerberosClient(test_domain, test_dc, test_user, test_pass, "", false, "aes256-cts-hmac-sha1-96", "", 0)
-	// cl := gokrb5.GetKerberosClient(test_domain, test_dc, test_user, "", test_hash, false, "rc4-hmac", "", 0)
+	cl := gokrb5.GetKerberosClientEx(test_domain, test_dc, test_user, test_pass, "", "", "", 0)
+	// cl := gokrb5.GetKerberosClient(test_domain, test_dc, test_user, "", test_hash, false,  "", 0)
 	err = cl.Login()
 	if err != nil {
 		log.Fatal(err)
@@ -137,9 +183,63 @@ func testSmbKerb() {
 	}
 }
 
+func testSmbKerbST() {
+	fmt.Println("[+] Testing SMB kerb ST...")
+	cl := gokrb5.GetKerberosClientEx(test_domain, test_dc, test_user, test_pass, "", "", "", 0)
+	// cl := gokrb5.GetKerberosClientEx(test_domain, test_dc, test_user, "", test_hash, false,  "", 0)
+	err := cl.Login()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ccst, err := cl.GetServiceTicketAsCCache(test_spn_cifs)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ccst.Export("/tmp/ccstsmb")
+
+	// load ccache and create client
+	ccache, _ := credentials.LoadCCache("/tmp/ccstsmb")
+	cl2, err := client.NewFromCCacheEx(ccache, cl.Config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	conn, err := net.Dial("tcp", "192.168.56.11:445")
+	// conn, err := net.Dial("tcp", "192.168.56.1:445")
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	d := &smb2.Dialer{
+		Initiator: &smb2.KerberosInitiator{
+			SPN:    test_spn_cifs,
+			Client: cl2,
+			User:   cl2.Credentials.CName(),
+		},
+	}
+
+	fmt.Println(cl.GetSessionSPNs())
+	s, err := d.Dial(conn)
+	if err != nil {
+		panic(err)
+	}
+	defer s.Logoff()
+
+	names, err := s.ListSharenames()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, name := range names {
+		fmt.Println(name)
+	}
+}
+
 func testLDAPwST() {
-	cl := gokrb5.GetKerberosClient(test_domain, test_dc, test_user, test_pass, "", false, "aes256-cts-hmac-sha1-96", "", 0)
-	// cl := gokrb5.GetKerberosClient(test_domain, test_dc, test_user, "", test_hash, false, "rc4-hmac", "", 0)
+	cl := gokrb5.GetKerberosClientEx(test_domain, test_dc, test_user, test_pass, "", "", "", 0)
+	// cl := gokrb5.GetKerberosClient(test_domain, test_dc, test_user, "", test_hash, false,  "", 0)
 	err := cl.Login()
 	if err != nil {
 		log.Fatal(err)
@@ -176,6 +276,7 @@ func testLDAPwST() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	searchRequest := ldap.NewSearchRequest(
 		"",
 		ldap.ScopeBaseObject, ldap.NeverDerefAliases, 0, 0, false,
@@ -192,8 +293,9 @@ func testLDAPwST() {
 }
 
 func testTickets() {
-	cl := gokrb5.GetKerberosClient(test_domain, test_dc, test_user, test_pass, "", false, "aes256-cts-hmac-sha1-96", "", 0)
-	// cl := gokrb5.GetKerberosClient(test_domain, test_dc, test_user, "", test_hash, false, "rc4-hmac", "", 0)
+	fmt.Println("[+] Testing tickets...")
+	cl := gokrb5.GetKerberosClientEx(test_domain, test_dc, test_user, test_pass, "", "", "", 0)
+	// cl := gokrb5.GetKerberosClientEx(test_domain, test_dc, test_user, "", test_hash, false,  "", 0)
 	err := cl.Login()
 	if err != nil {
 		log.Fatal(err)

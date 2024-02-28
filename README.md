@@ -1,6 +1,9 @@
 
 
 # Attempt at some impacket functionality in pure go.
+## TODO:
+- [ ] SMB needs NTLMv1 functionality. Currently only NTLMv2 and Kerberos are supported.
+
 #### getTGT: 
 - [x] auth with user/pass
 - [x] auth with user/hash

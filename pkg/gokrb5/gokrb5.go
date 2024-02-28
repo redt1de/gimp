@@ -31,7 +31,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/jcmturner/gofork/encoding/asn1"
@@ -77,7 +76,7 @@ func MakeKerbConfig(domain string, dc string, etypeid int32) (*config.Config, er
 
 // TODO:
 // need to iterate through the etypes if KDC_ERR_ETYPE_NOSUPP is returned
-func GetKerberosClient(domain string, dc string, username string, password string, ntlm string, ccacheAuth bool, etype string, socksAddress string, socksType int) *client.Client {
+func GetKerberosClient(domain string, dc string, username string, password string, ntlm string, ccachePath string, etype string, socksAddress string, socksType int) *client.Client {
 	var cl *client.Client
 	var err error
 
@@ -99,9 +98,52 @@ func GetKerberosClient(domain string, dc string, username string, password strin
 		log.Fatal(err)
 	}
 
-	if ccacheAuth {
-		ccache, _ := credentials.LoadCCache(os.Getenv("KRB5CCNAME"))
+	if ccachePath != "" {
+		ccache, _ := credentials.LoadCCache(ccachePath)
 		cl, err = client.NewFromCCache(ccache, c)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if password != "" {
+		cl = client.NewWithPassword(username, domain, password, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
+	} else if ntlm != "" {
+
+		cl = client.NewWithHash(username, domain, ntlm, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
+	}
+
+	return cl
+
+}
+
+// TODO:
+// need to iterate through the etypes if KDC_ERR_ETYPE_NOSUPP is returned
+func GetKerberosClientEx(domain string, dc string, username string, password string, ntlm string, ccachePath string, socksAddress string, socksType int) *client.Client {
+	var cl *client.Client
+	var err error
+
+	// etypeid := etypeID.EtypeSupported(etype)
+	// if etypeid == 0 {
+	// 	log.Println("Invalid E-type ID requested for Kerberos Client")
+	// 	fmt.Println("Valid types are:")
+	// 	for k, v := range etypeID.ETypesByName {
+	// 		fmt.Printf("%s: %d\n", k, v)
+	// 	}
+	// }
+	etypeid := etypeID.AES256_CTS_HMAC_SHA1_96
+
+	if ntlm != "" {
+		etypeid = etypeID.RC4_HMAC
+	}
+
+	domain = strings.ToUpper(domain)
+	c, err := MakeKerbConfig(domain, dc, etypeid)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if ccachePath != "" {
+		ccache, _ := credentials.LoadCCache(ccachePath)
+		cl, err = client.NewFromCCacheEx(ccache, c)
 		if err != nil {
 			log.Fatal(err)
 		}
