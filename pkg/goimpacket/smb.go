@@ -38,7 +38,7 @@ func NewSMBConnection(domain string, host string, username string, password stri
 	}
 }
 
-// Connect connects to the LDAP server
+// Connect connects to the SMB server
 func (l *SMBConnection) Login() error {
 	var err error
 
@@ -92,10 +92,10 @@ func (l *SMBConnection) Login() error {
 			return err
 		}
 		d := &smb2.Dialer{
-			Negotiator: smb2.Negotiator{
-				RequireMessageSigning: false,
-				SpecifiedDialect:      0x302,
-			},
+			// Negotiator: smb2.Negotiator{
+			// 	RequireMessageSigning: false,
+			// 	SpecifiedDialect:      0x302,
+			// },
 			Initiator: &smb2.NTLMInitiator{
 				Domain:   l.Domain,
 				User:     l.Username,
