@@ -86,11 +86,16 @@ func (l *SMBConnection) Login() error {
 
 	} else {
 		conn, err := net.Dial("tcp", fmt.Sprintf("%s:445", l.Host))
+
 		if err != nil {
 			conn.Close()
 			return err
 		}
 		d := &smb2.Dialer{
+			Negotiator: smb2.Negotiator{
+				RequireMessageSigning: false,
+				SpecifiedDialect:      0x302,
+			},
 			Initiator: &smb2.NTLMInitiator{
 				Domain:   l.Domain,
 				User:     l.Username,
