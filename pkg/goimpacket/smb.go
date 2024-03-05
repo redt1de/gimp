@@ -1,11 +1,9 @@
 package goimpacket
 
 import (
-	"encoding/hex"
 	"fmt"
-	"net"
 
-	"github.com/redt1de/gimp/pkg/go-smb2"
+	"github.com/redt1de/gimp/pkg/go-smb/smb"
 	"github.com/redt1de/gimp/pkg/gokrb5"
 	"github.com/redt1de/gimp/pkg/gokrb5/client"
 )
@@ -21,7 +19,7 @@ type SMBConnection struct {
 	CCachePath string
 	DC         string
 	// conn       *net.Conn
-	SmbSession  *smb2.Session
+	SmbSession  *smb.Connection
 	IsConnected bool
 }
 
@@ -66,65 +64,45 @@ func (l *SMBConnection) Login() error {
 			spn = spnMatch
 		}
 
-		conn, err := net.Dial("tcp", fmt.Sprintf("%s:445", l.Host))
-		if err != nil {
-			conn.Close()
-			return err
+		ki := smb.KerberosInitiator{
+			User:               cl.Credentials.CName(),
+			TargetSPN:          spn,
+			Client:             cl,
+			DisableSigning:     false,
+			EncryptionDisabled: false,
 		}
 
-		d := &smb2.Dialer{
-			Initiator: &smb2.KerberosInitiator{
-				SPN:    spn,
-				Client: cl,
-				User:   cl.Credentials.CName(),
-			},
+		options := smb.Options{
+			Host:      l.Host,
+			Port:      445,
+			Initiator: &ki,
 		}
-
-		l.SmbSession, err = d.Dial(conn)
+		l.SmbSession, err = smb.NewConnection(options)
 		if err != nil {
-			conn.Close()
+			fmt.Println(err)
 			return err
 		}
+		defer l.SmbSession.Close()
 
 	} else {
-		conn, err := net.Dial("tcp", fmt.Sprintf("%s:445", l.Host))
-
-		if err != nil {
-			conn.Close()
-			return err
-		}
-		d := &smb2.Dialer{
-			// Negotiator: smb2.Negotiator{
-			// 	RequireMessageSigning: false,
-			// 	SpecifiedDialect:      0x302,
-			// },
-			Initiator: &smb2.NTLMInitiator{
-				Domain:   l.Domain,
+		options := smb.Options{
+			Host: l.Host,
+			Port: 445,
+			Initiator: &smb.NTLMInitiator{
 				User:     l.Username,
 				Password: l.Password,
+				Domain:   l.Domain,
+				// TODO: add hash support
+				DisableSigning:     true,
+				EncryptionDisabled: true,
 			},
 		}
-
-		if l.Hash != "" {
-			hashhex, err := hex.DecodeString(l.Hash)
-			if err != nil {
-				return err
-			}
-			d = &smb2.Dialer{
-				Initiator: &smb2.NTLMInitiator{
-					Domain: l.Domain,
-					User:   l.Username,
-					Hash:   hashhex,
-				},
-			}
-
-		}
-
-		l.SmbSession, err = d.Dial(conn)
+		l.SmbSession, err = smb.NewConnection(options)
 		if err != nil {
-			conn.Close()
+			fmt.Println(err)
 			return err
 		}
+		defer l.SmbSession.Close()
 
 	}
 	l.IsConnected = true
@@ -133,5 +111,5 @@ func (l *SMBConnection) Login() error {
 }
 
 func (l *SMBConnection) Close() {
-	l.SmbSession.Logoff()
+	l.SmbSession.Close()
 }

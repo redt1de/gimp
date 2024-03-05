@@ -57,22 +57,22 @@ func testSMBConn() {
 	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", true, "/tmp/jstgt.ccache", test_dc) // krb TGT
 	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", true, "/tmp/jscifs.ccache", test_dc) // krb ST
 	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, "", test_hash, true, "", test_dc) // krb hash
-	l := goimpacket.NewSMBConnection(test_domain, test_host, test_user, test_pass, "", true, "", test_dc) // krb pass
+	// l := goimpacket.NewSMBConnection(test_domain, test_host, test_user, test_pass, "", true, "", test_dc) // krb pass
 	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, "", test_hash, false, "", test_dc) // ntlm hash
-	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", false, "", test_dc) // ntlm pass
+	l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", false, "", test_dc) // ntlm pass
 	err := l.Login()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	names, err := l.SmbSession.ListSharenames()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// names, err := l.SmbSession.ListSharenames()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	for _, name := range names {
-		fmt.Println(name)
-	}
+	// for _, name := range names {
+	// 	fmt.Println(name)
+	// }
 
 }
 
