@@ -8,10 +8,11 @@ import (
 	"log"
 
 	"github.com/redt1de/dbg"
-	"github.com/redt1de/gimp/pkg/goimpacket"
-	"github.com/redt1de/gimp/pkg/gokrb5"
-	"github.com/redt1de/gimp/pkg/gokrb5/types"
-	"github.com/redt1de/gimp/pkg/ldap"
+	"github.com/redt1de/gimp/goimpacket"
+	"github.com/redt1de/gimp/goimpacket/gokrb5"
+	"github.com/redt1de/gimp/goimpacket/gokrb5/types"
+	"github.com/redt1de/gimp/goimpacket/ldap"
+	"github.com/redt1de/gimp/goimpacket/util"
 )
 
 // TODO:
@@ -45,11 +46,16 @@ func main() {
 	dbg.SetByName("smb", true, dbg.LogDefault^dbg.LogInfo|dbg.LogErrorSrc)
 	dbg.SetByName("gssapi2", true, dbg.LogAll)
 
-	testSMBConn()
+	// testSMBConn()
 	// testLdapConn()
 	// testTickets()
 
 	// cmd.Execute()
+
+	fmt.Println(util.ParseTarget("NORTH.SEVENKINGDOMS.LOCAL/jon.snow:iknownothing@somehost.somedom.com"))
+	fmt.Println(util.ParseTarget("NORTH.SEVENKINGDOMS.LOCAL\\jon.snow:iknownothing@somehost.somedom.com"))
+	fmt.Println(util.ParseTarget("NORTH.SEVENKINGDOMS.LOCAL\\jon.snow@somehost.somedom.com"))
+	fmt.Println(util.ParseTarget("NORTH.SEVENKINGDOMS.LOCAL\\jon.snow"))
 }
 
 func testSMBConn() {
