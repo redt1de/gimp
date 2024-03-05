@@ -36,6 +36,7 @@ func (c *spnegoClient) initSecContext() (negTokenInitBytes []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
+	// dbg.Dump(negTokenInitBytes)
 	return negTokenInitBytes, nil
 }
 

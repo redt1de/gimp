@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jcmturner/gofork/encoding/asn1"
+	"github.com/redt1de/dbg"
 	"github.com/redt1de/gimp/pkg/gokrb5/asn1tools"
 	"github.com/redt1de/gimp/pkg/gokrb5/client"
 	"github.com/redt1de/gimp/pkg/gokrb5/crypto"
@@ -18,6 +19,8 @@ import (
 	"github.com/redt1de/gimp/pkg/gokrb5/spnego"
 	"github.com/redt1de/gimp/pkg/gokrb5/types"
 )
+
+var dlog = dbg.Get("gssapi2")
 
 type GSSAPI struct {
 	Client *client.Client
@@ -45,6 +48,7 @@ func newAuthenticatorChksum(flags []int) []byte {
 }
 
 func (k *GSSAPI) InitSecContext(target string, token []byte, isGSSDelegCreds bool) ([]byte, bool, error) {
+
 	if token == nil {
 		var tkt messages.Ticket
 		var err, authErr error
@@ -125,11 +129,14 @@ func (k *GSSAPI) InitSecContext(target string, token []byte, isGSSDelegCreds boo
 			return nil, false, fmt.Errorf("AP_REP time out of range: %v <=> %v", time.Now(), payload.CTime)
 		}
 		k.sessSubkey = payload.Subkey
+		// dlog.Dump(k.sessSubkey)
+
 		return []byte{}, false, nil
 	}
 }
 
 func (k *GSSAPI) GetMIC(bs []byte) []byte {
+
 	token, err := gssapi.NewInitiatorMICToken(bs, k.micSubkey)
 	if err != nil {
 		return nil

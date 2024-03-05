@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redt1de/dbg"
 	"github.com/redt1de/gimp/pkg/go-smb2/internal/utf16le"
 )
 
@@ -46,6 +47,10 @@ func (c *Client) Negotiate() (nmsg []byte, err error) {
 	copy(nmsg[:8], signature)
 	le.PutUint32(nmsg[8:12], NtLmNegotiate)
 	le.PutUint32(nmsg[12:16], defaultFlags)
+	dbg.Println("NOTE: disable encrytion via NTLMSSP_NEGOTIATE_SEAL")
+	// if !c.EncryptionDisabled {
+	// 	req.NegotiateFlags |= FlgNegSeal
+	// }
 
 	copy(nmsg[32:], version)
 

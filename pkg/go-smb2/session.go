@@ -14,6 +14,7 @@ import (
 	"hash"
 	"os"
 
+	"github.com/redt1de/dbg"
 	"github.com/redt1de/gimp/pkg/go-smb2/internal/crypto/ccm"
 	"github.com/redt1de/gimp/pkg/go-smb2/internal/crypto/cmac"
 
@@ -21,9 +22,12 @@ import (
 	. "github.com/redt1de/gimp/pkg/go-smb2/internal/smb2"
 )
 
+var dlog = dbg.Get("session2")
+
 func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error) {
 	spnego := newSpnegoClient([]Initiator{i})
 
+	// dbg.Dump(spnego)
 	outputToken, err := spnego.initSecContext()
 	if err != nil {
 		return nil, &InvalidResponseError{err.Error()}
@@ -36,6 +40,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 		SecurityBuffer:    outputToken,
 		PreviousSessionId: 0,
 	}
+	dlog.Println("disable encryption via SMB2 flags here ?????? SMB2_GLOBAL_CAP_ENCRYPTION")
 
 	if conn.requireSigning {
 		req.SecurityMode = SMB2_NEGOTIATE_SIGNING_REQUIRED
@@ -45,6 +50,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 
 	req.CreditCharge = 1
 	req.CreditRequestResponse = conn.account.initRequest()
+	// spew.Dump(req)
 
 	rr, err := conn.send(req, ctx)
 	if err != nil {
@@ -55,14 +61,15 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 	if err != nil {
 		return nil, err
 	}
+	// dbg.Dump(pkt)
 
 	p := PacketCodec(pkt)
 
 	if NtStatus(p.Status()) != STATUS_MORE_PROCESSING_REQUIRED && NtStatus(p.Status()) != STATUS_SUCCESS {
 		return nil, &InvalidResponseError{fmt.Sprintf("expected status: %v, got %v", STATUS_MORE_PROCESSING_REQUIRED, NtStatus(p.Status()))}
 	}
-
-	res, err := accept(SMB2_SESSION_SETUP, pkt)
+	// dbg.Println(fmt.Sprintf("cmd: %d, status: %d", SMB2_SESSION_SETUP, p.Status()))
+	res, err := accept(SMB2_SESSION_SETUP, pkt) // res = p.Data() =  p[64:]
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +78,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 	if r.IsInvalid() {
 		return nil, &InvalidResponseError{"broken session setup response format"}
 	}
-
+	//////////////////////////////// ALIGNED TO HERE: 1 ///////////////////////////////////////
 	sessionFlags := r.SessionFlags()
 	if conn.requireSigning {
 		if sessionFlags&SMB2_SESSION_FLAG_IS_GUEST != 0 {
@@ -92,7 +99,6 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 	switch conn.dialect {
 	case SMB311:
 		s.preauthIntegrityHashValue = conn.preauthIntegrityHashValue
-
 		switch conn.preauthIntegrityHashId {
 		case SHA512:
 			h := sha512.New()
@@ -109,7 +115,8 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 		}
 
 	}
-
+	// dbg.Dump(r.SecurityBuffer())
+	//////////////////////////////// ALIGNED TO HERE: 2 ///////////////////////////////////////
 	outputToken, err = spnego.acceptSecContext(r.SecurityBuffer())
 	if err != nil {
 		return nil, &InvalidResponseError{err.Error()}
@@ -128,15 +135,16 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			return nil, err
 		}
 	}
-
+	// dbg.Dump(spnego)
 	if s.sessionFlags&(SMB2_SESSION_FLAG_IS_GUEST|SMB2_SESSION_FLAG_IS_NULL) == 0 {
 		sessionKey := spnego.sessionKey()
-
 		switch conn.dialect {
 		case SMB202, SMB210:
+
 			s.signer = hmac.New(sha256.New, sessionKey)
 			s.verifier = hmac.New(sha256.New, sessionKey)
 		case SMB300, SMB302:
+
 			signingKey := kdf(sessionKey, []byte("SMB2AESCMAC\x00"), []byte("SmbSign\x00"))
 			ciph, err := aes.NewCipher(signingKey)
 			if err != nil {
@@ -168,6 +176,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				return nil, &InternalError{err.Error()}
 			}
 		case SMB311:
+
 			if NtStatus(p.Status()) == STATUS_MORE_PROCESSING_REQUIRED {
 				switch conn.preauthIntegrityHashId {
 				case SHA512:
@@ -179,6 +188,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 			}
 
 			signingKey := kdf(sessionKey, []byte("SMBSigningKey\x00"), s.preauthIntegrityHashValue[:])
+
 			ciph, err := aes.NewCipher(signingKey)
 			if err != nil {
 				return nil, &InternalError{err.Error()}
@@ -195,7 +205,6 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 				sess := binary.LittleEndian.AppendUint64(nil, s.sessionId)
 				fmt.Printf("%x,%x\n", sess, sessionKey)
 			}
-
 			switch s.cipherId {
 			case AES128CCM:
 				ciph, err := aes.NewCipher(encryptionKey)
@@ -305,6 +314,7 @@ func sessionSetup(conn *conn, i Initiator, ctx context.Context) (*session, error
 	}
 	// now, allow access from receiver
 	s.enableSession()
+	// dbg.Dump(s.encrypter)
 
 	return s, nil
 }
@@ -416,13 +426,11 @@ func (s *session) encrypt(pkt []byte) ([]byte, error) {
 	t.SetOriginalMessageSize(uint32(len(pkt)))
 	t.SetFlags(Encrypted)
 	t.SetSessionId(s.sessionId)
-
 	s.encrypter.Seal(c[:52], nonce, pkt, t.AssociatedData())
 
 	t.SetSignature(c[len(c)-16:])
 
 	c = c[:len(c)-16]
-
 	return c, nil
 }
 

@@ -596,7 +596,9 @@ exit:
 }
 
 func accept(cmd uint16, pkt []byte) (res []byte, err error) {
+
 	p := PacketCodec(pkt)
+
 	if command := p.Command(); cmd != command {
 		return nil, &InvalidResponseError{fmt.Sprintf("expected command: %v, got %v", cmd, command)}
 	}

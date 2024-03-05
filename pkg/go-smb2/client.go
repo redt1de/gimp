@@ -69,26 +69,30 @@ func (d *Dialer) DialContext(ctx context.Context, tcpConn net.Conn) (*Session, e
 		return nil, err
 	}
 
-	return &Session{s: s, ctx: context.Background(), addr: tcpConn.RemoteAddr().String()}, nil
+	return &Session{s: s, Ctx: context.Background(), addr: tcpConn.RemoteAddr().String()}, nil
 }
 
 // Session represents a SMB session.
 type Session struct {
 	s    *session
-	ctx  context.Context
+	Ctx  context.Context
 	addr string
+}
+
+func (c *Session) Addr() string {
+	return c.addr
 }
 
 func (c *Session) WithContext(ctx context.Context) *Session {
 	if ctx == nil {
 		panic("nil context")
 	}
-	return &Session{s: c.s, ctx: ctx, addr: c.addr}
+	return &Session{s: c.s, Ctx: ctx, addr: c.addr}
 }
 
 // Logoff invalidates the current SMB session.
 func (c *Session) Logoff() error {
-	return c.s.logoff(c.ctx)
+	return c.s.logoff(c.Ctx)
 }
 
 // Mount mounts the SMB share.
@@ -106,7 +110,7 @@ func (c *Session) Mount(sharename string) (*Share, error) {
 		return nil, err
 	}
 
-	tc, err := treeConnect(c.s, sharename, 0, c.ctx)
+	tc, err := treeConnect(c.s, sharename, 0, c.Ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -116,14 +120,13 @@ func (c *Session) Mount(sharename string) (*Share, error) {
 
 func (c *Session) ListSharenames() ([]string, error) {
 	servername := c.addr
-
 	fs, err := c.Mount(fmt.Sprintf(`\\%s\IPC$`, servername))
 	if err != nil {
 		return nil, err
 	}
 	defer fs.Umount()
 
-	fs = fs.WithContext(c.ctx)
+	fs = fs.WithContext(c.Ctx)
 
 	f, err := fs.OpenFile("srvsvc", os.O_RDWR, 0666)
 	if err != nil {
@@ -145,7 +148,7 @@ func (c *Session) ListSharenames() ([]string, error) {
 		},
 	}
 
-	output, err := f.ioctl(bindReq)
+	output, err := f.IoCtl(bindReq)
 	if err != nil {
 		return nil, &os.PathError{Op: "listSharenames", Path: f.name, Err: err}
 	}
@@ -172,7 +175,7 @@ func (c *Session) ListSharenames() ([]string, error) {
 		},
 	}
 
-	output, err = f.ioctl(reqReq)
+	output, err = f.IoCtl(reqReq)
 	if err != nil {
 		if rerr, ok := err.(*ResponseError); ok && NtStatus(rerr.Code) == STATUS_BUFFER_OVERFLOW {
 			buf := make([]byte, 4280)
@@ -403,7 +406,7 @@ func (fs *Share) Readlink(name string) (string, error) {
 		Input:             nil,
 	}
 
-	output, err := f.ioctl(req)
+	output, err := f.IoCtl(req)
 	if e := f.close(); err == nil {
 		err = e
 	}
@@ -593,7 +596,7 @@ func (fs *Share) Symlink(target, linkpath string) error {
 		Input:             rdbuf,
 	}
 
-	_, err = f.ioctl(req)
+	_, err = f.IoCtl(req)
 	if err != nil {
 		f.remove()
 		f.close()
@@ -1730,7 +1733,7 @@ func (f *File) copyTo(wf *File) (supported bool, n int64, err error) {
 		Flags:             SMB2_0_IOCTL_IS_FSCTL,
 	}
 
-	output, err := f.ioctl(req)
+	output, err := f.IoCtl(req)
 	if err != nil {
 		if rerr, ok := err.(*ResponseError); ok && NtStatus(rerr.Code) == STATUS_NOT_SUPPORTED {
 			return false, -1, nil
@@ -1819,7 +1822,7 @@ func (f *File) copyTo(wf *File) (supported bool, n int64, err error) {
 			Input:             scc,
 		}
 
-		output, err = wf.ioctl(cReq)
+		output, err = wf.IoCtl(cReq)
 		if err != nil {
 			return true, -1, &os.LinkError{Op: "copy", Old: f.name, New: wf.name, Err: err}
 		}
@@ -1888,7 +1891,7 @@ func (f *File) encodeSize(e Encoder) int {
 	return e.Size()
 }
 
-func (f *File) ioctl(req *IoctlRequest) (output []byte, err error) {
+func (f *File) IoCtl(req *IoctlRequest) (output []byte, err error) {
 	payloadSize := f.encodeSize(req.Input) + int(req.OutputCount)
 	if payloadSize < int(req.MaxOutputResponse+req.MaxInputResponse) {
 		payloadSize = int(req.MaxOutputResponse + req.MaxInputResponse)

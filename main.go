@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/redt1de/dbg"
 	"github.com/redt1de/gimp/pkg/goimpacket"
 	"github.com/redt1de/gimp/pkg/gokrb5"
 	"github.com/redt1de/gimp/pkg/gokrb5/types"
@@ -18,6 +19,7 @@ import (
 const (
 	test_domain      = "NORTH.SEVENKINGDOMS.LOCAL"
 	test_dc          = "winterfell.NORTH.SEVENKINGDOMS.LOCAL"
+	test_host        = "winterfell.NORTH.SEVENKINGDOMS.LOCAL"
 	test_user        = "jon.snow"
 	test_pass        = "iknownothing"
 	test_hash        = "b8d76e56e9dac90539aff05e3ccb1755"
@@ -25,13 +27,27 @@ const (
 	test_impersonate = "eddard.stark"
 	test_spn_cifs    = "CIFS/winterfell.NORTH.SEVENKINGDOMS.LOCAL"
 	test_spn_ldap    = "LDAP/winterfell.NORTH.SEVENKINGDOMS.LOCAL"
+	// test_domain      = "ESSOS.LOCAL"
+	// test_dc          = "MEEREEN.ESSOS.LOCAL"
+	// test_host        = "BRAAVOS.ESSOS.LOCAL"
+	// test_user        = "daenerys.targaryen"
+	// test_pass        = "BurnThemAll!"
+	// test_hash        = ""
+	// test_hash_full   = ""
+	// test_impersonate = ""
+	// test_spn_cifs    = "CIFS/MEEREEN.ESSOS.LOCAL"
+	// test_spn_ldap    = "LDAP/MEEREEN.ESSOS.LOCAL"
 )
 
 func main() {
+	dbg.SetByName("session2", true, dbg.LogAll^dbg.LogErrTrace^dbg.LogTraceVerbose) // defined as a globar var in session2.go so should already exist
+	dbg.SetByName("main", true, dbg.LogDefault)
+	dbg.SetByName("smb", true, dbg.LogDefault^dbg.LogInfo|dbg.LogErrorSrc)
+	dbg.SetByName("gssapi2", true, dbg.LogAll)
 
 	testSMBConn()
-	testLdapConn()
-	testTickets()
+	// testLdapConn()
+	// testTickets()
 
 	// cmd.Execute()
 }
@@ -41,15 +57,15 @@ func testSMBConn() {
 	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", true, "/tmp/jstgt.ccache", test_dc) // krb TGT
 	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", true, "/tmp/jscifs.ccache", test_dc) // krb ST
 	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, "", test_hash, true, "", test_dc) // krb hash
-	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", true, "", test_dc) // krb pass
+	l := goimpacket.NewSMBConnection(test_domain, test_host, test_user, test_pass, "", true, "", test_dc) // krb pass
 	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, "", test_hash, false, "", test_dc) // ntlm hash
-	l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", false, "", test_dc) // ntlm pass
+	// l := goimpacket.NewSMBConnection(test_domain, test_dc, test_user, test_pass, "", false, "", test_dc) // ntlm pass
 	err := l.Login()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	names, err := l.SmbConn.ListSharenames()
+	names, err := l.SmbSession.ListSharenames()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,9 +81,9 @@ func testLdapConn() {
 	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", true, "/tmp/jstgt.ccache", test_dc, true) // krb TGT
 	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", true, "/tmp/jsldap.ccache", test_dc, true) // krb ST
 	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, "", test_hash, true, "", test_dc, true) // krb hash
-	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", true, "", test_dc, true) // krb pass
+	l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", true, "", test_dc, true) // krb pass
 	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, "", test_hash, false, "", test_dc, true) // ntlm hash
-	l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", false, "", test_dc, true) // ntlm pass
+	// l := goimpacket.NewLDAPConnection(test_domain, test_dc, 636, test_user, test_pass, "", false, "", test_dc, true) // ntlm pass
 	err := l.Login()
 	if err != nil {
 		log.Fatal(err)

@@ -27,6 +27,9 @@ Kerb stuff is based on  forks of [https://github.com/jcmturner/gokrb5](https://g
 
 SMB is based on a fork of [https://github.com/hirochachacha/go-smb2](https://github.com/hirochachacha/go-smb2) -> [https://github.com/lorenz/go-smb2](https://github.com/lorenz/go-smb2)
 
+This repo has potential
+- -> [https://github.com/jfjallid/go-smb](https://github.com/jfjallid/go-smb)
+
 LDAP is based on a fork of [https://github.com/go-ldap/ldap/v3](https://github.com/go-ldap/ldap/v3) -> [https://github.com/synzack/ldap/v3](https://github.com/synzack/ldap/v3)
 
 

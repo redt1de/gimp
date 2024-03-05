@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/redt1de/gimp/pkg/go-smb2/internal/utf16le"
 )
 
@@ -184,7 +183,7 @@ func (r *NetShareEnumAllRequest) Encode(b []byte) {
 	le.PutUint32(b[32:36], 0)                  // offset
 	le.PutUint32(b[36:40], uint32(count))      // actual count
 	utf16le.EncodeString(b[40:], r.ServerName) // server unc
-	spew.Dump(b)
+	// spew.Dump(b)
 
 	off := 40 + count*2
 	off = roundup(off, 4)
@@ -213,7 +212,7 @@ func (r *NetShareEnumAllRequest) Encode(b []byte) {
 
 	le.PutUint16(b[8:10], uint16(off))     // frag length
 	le.PutUint32(b[16:20], uint32(off-24)) // alloc hint
-	println("Spew dump of NetShareEnumAllRequest: msrpc.go:211")
+	// println("Spew dump of NetShareEnumAllRequest: msrpc.go:211")
 
 }
 

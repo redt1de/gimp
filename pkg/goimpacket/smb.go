@@ -21,7 +21,8 @@ type SMBConnection struct {
 	CCachePath string
 	DC         string
 	// conn       *net.Conn
-	SmbConn *smb2.Session
+	SmbSession  *smb2.Session
+	IsConnected bool
 }
 
 // NewLDAPConnection creates a new LDAPConnection object
@@ -45,6 +46,7 @@ func (l *SMBConnection) Login() error {
 	if l.Kerberos {
 		var cl *client.Client
 		spn := fmt.Sprintf("CIFS/%s", l.Host)
+
 		cl = gokrb5.GetKerberosClientEx(l.Domain, l.DC, l.Username, l.Password, l.Hash, l.CCachePath, "", 0)
 		hasST, spnMatch := cl.SessionHasSPN(spn)
 		hasTGT, _ := cl.SessionHasSPN("krbtgt/" + l.Domain)
@@ -78,7 +80,7 @@ func (l *SMBConnection) Login() error {
 			},
 		}
 
-		l.SmbConn, err = d.Dial(conn)
+		l.SmbSession, err = d.Dial(conn)
 		if err != nil {
 			conn.Close()
 			return err
@@ -118,17 +120,18 @@ func (l *SMBConnection) Login() error {
 
 		}
 
-		l.SmbConn, err = d.Dial(conn)
+		l.SmbSession, err = d.Dial(conn)
 		if err != nil {
 			conn.Close()
 			return err
 		}
 
 	}
+	l.IsConnected = true
 
 	return nil
 }
 
 func (l *SMBConnection) Close() {
-	l.SmbConn.Logoff()
+	l.SmbSession.Logoff()
 }
