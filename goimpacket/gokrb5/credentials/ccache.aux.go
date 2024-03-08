@@ -8,8 +8,11 @@ import (
 
 	"github.com/jcmturner/gofork/encoding/asn1"
 
+	"github.com/redt1de/dbg"
 	"github.com/redt1de/gimp/goimpacket/gokrb5/types"
 )
+
+var dlog = dbg.Get("gokrb5/ccache")
 
 // CCache is the file credentials cache as define here: https://web.mit.edu/kerberos/krb5-latest/doc/formats/ccache_file_format.html
 // changed from original to export fields.
@@ -57,6 +60,7 @@ type Credential struct {
 
 // SaveCCache saves a CCache type to a file.
 func (c *CCache) Export(cpath string) error {
+	// dlog.Dump(c)
 	var out bytes.Buffer
 	endian := binary.BigEndian
 	binary.Write(&out, endian, int8(5))
@@ -84,6 +88,7 @@ func (c *CCache) Export(cpath string) error {
 
 	// CREDENTIALS
 	for _, cred := range c.Credentials {
+
 		binary.Write(&out, endian, cred.Client.PrincipalName.NameType)
 		binary.Write(&out, endian, int32(len(cred.Client.PrincipalName.NameString)))
 		binary.Write(&out, endian, int32(len(cred.Client.Realm)))
@@ -101,8 +106,17 @@ func (c *CCache) Export(cpath string) error {
 			binary.Write(&out, endian, int32(len(n)))
 			out.Write([]byte(n))
 		}
+		// dlog.Warnf("KeyType: %d (0x%x)\n", cred.Key.KeyType, cred.Key.KeyType)
 		binary.Write(&out, endian, int16(cred.Key.KeyType))
-		binary.Write(&out, endian, int32(32)) // DIFF TODO, idk where "00 00 00 20" comes from
+
+		switch cred.Key.KeyType {
+		case 18:
+			binary.Write(&out, endian, int32(32))
+		case 23:
+			binary.Write(&out, endian, int32(16))
+		default:
+			dlog.Warnf("TODO: in CCACHE Export, Unknown KeyType: %d (0x%x)\n", cred.Key.KeyType, cred.Key.KeyType)
+		}
 
 		out.Write(cred.Key.KeyValue)
 		binary.Write(&out, endian, int32(cred.AuthTime.Unix()))
@@ -116,6 +130,7 @@ func (c *CCache) Export(cpath string) error {
 		}
 		out.Write(cred.TicketFlags.Bytes)
 
+		// dlog.Warnln("Addresses:", len(cred.Addresses))
 		binary.Write(&out, endian, int32(len(cred.Addresses)))
 		for _, a := range cred.Addresses {
 			binary.Write(&out, endian, int16(a.AddrType))

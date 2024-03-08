@@ -27,17 +27,17 @@ type SMBConnection struct {
 	IsConnected bool
 }
 
-// NewLDAPConnection creates a new LDAPConnection object
-func NewSMBConnection(domain string, host string, username string, password string, hash string, kerberos bool, cCachePath string, dc string) *SMBConnection {
+// NewSMBConnection creates a new SMBConnection object
+func NewSMBConnection(ac *ADAccount, at *ADTarget) *SMBConnection {
 	return &SMBConnection{
-		Domain:     domain,
-		Host:       host,
-		Username:   username,
-		Password:   password,
-		Hash:       hash,
-		Kerberos:   kerberos,
-		CCachePath: cCachePath,
-		DC:         dc,
+		Domain:     ac.Domain,
+		Host:       at.Host,
+		Username:   ac.Username,
+		Password:   ac.Password,
+		Hash:       ac.Hash,
+		Kerberos:   ac.Kerberos,
+		CCachePath: ac.CCachePath,
+		DC:         ac.DC,
 	}
 }
 

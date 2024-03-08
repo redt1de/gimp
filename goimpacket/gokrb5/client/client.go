@@ -28,6 +28,7 @@ type Client struct {
 	settings    *Settings
 	sessions    *sessions
 	cache       *Cache
+	CCache      *credentials.CCache
 }
 
 // NewWithPassword creates a new client from a password credential.
@@ -206,6 +207,7 @@ func (cl *Client) Login() error {
 		return err
 	}
 	cl.addSession(ASRep.Ticket, ASRep.DecryptedEncPart)
+	cl.CCache, _ = ASRep.ToCCache()
 	return nil
 }
 

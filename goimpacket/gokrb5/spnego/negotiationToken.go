@@ -287,7 +287,9 @@ func UnmarshalNegToken(b []byte) (bool, interface{}, error) {
 
 // NewNegTokenInitKRB5 creates new Init negotiation token for Kerberos 5
 func NewNegTokenInitKRB5(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey) (NegTokenInit, error) {
-	mt, err := NewKRB5TokenAPREQ(cl, tkt, sessionKey, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, []int{})
+	println(">>>>>>>>>>>>>>>>>>>>>>>> working on NewNegTokenInitKRB5 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	mt, err := NewKRB5TokenAPREQ(cl, tkt, sessionKey, []int{}, []int{}) //<<<<<<<<<<<<<<<<
+	// mt, err := NewKRB5TokenAPREQ(cl, tkt, sessionKey, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, []int{}) //<<<<<<<<<<<<<<<<
 	if err != nil {
 		return NegTokenInit{}, fmt.Errorf("error getting KRB5 token; %v", err)
 	}

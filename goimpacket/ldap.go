@@ -3,16 +3,19 @@ package goimpacket
 import (
 	"crypto/tls"
 	"fmt"
+	"os"
 
+	"github.com/redt1de/dbg"
 	"github.com/redt1de/gimp/goimpacket/gokrb5"
 	"github.com/redt1de/gimp/goimpacket/gokrb5/client"
 	"github.com/redt1de/gimp/goimpacket/ldap"
 )
 
+var ldlog = dbg.Get("goimpacket/ldap")
+
 type LDAPConnection struct {
 	Domain      string
 	Host        string
-	Port        int
 	Username    string
 	Password    string
 	Hash        string
@@ -22,27 +25,29 @@ type LDAPConnection struct {
 	TLS         bool
 	Conn        *ldap.Conn
 	ldapAddress string
+	BaseDN      string
 }
 
 // NewLDAPConnection creates a new LDAPConnection object
-func NewLDAPConnection(domain string, host string, port int, username string, password string, hash string, kerberos bool, cCachePath string, dc string, ldaps bool) *LDAPConnection {
+func NewLDAPConnection(ac *ADAccount, at *ADTarget, ldaps bool) *LDAPConnection {
 	var l string
 	if ldaps {
-		l = fmt.Sprintf("%s:%d", host, 636)
+		l = fmt.Sprintf("%s:%d", at.Host, 636)
 	} else {
-		l = fmt.Sprintf("%s:%d", host, 389)
+		l = fmt.Sprintf("%s:%d", at.Host, 389)
 	}
 	return &LDAPConnection{
-		Domain:      domain,
-		Host:        host,
-		Username:    username,
-		Password:    password,
-		Hash:        hash,
-		Kerberos:    kerberos,
-		CCachePath:  cCachePath,
-		DC:          dc,
+		Domain:      ac.Domain,
+		Host:        at.Host,
+		Username:    ac.Username,
+		Password:    ac.Password,
+		Hash:        ac.Hash,
+		Kerberos:    ac.Kerberos,
+		CCachePath:  ac.CCachePath,
+		DC:          ac.DC,
 		TLS:         ldaps,
 		ldapAddress: l,
+		BaseDN:      "",
 	}
 }
 
@@ -51,15 +56,28 @@ func (l *LDAPConnection) Login() error {
 	var err error
 
 	if l.TLS {
-		l.Conn, err = ldap.DialTLS("tcp", l.ldapAddress, &tls.Config{InsecureSkipVerify: true})
+		cf := &tls.Config{InsecureSkipVerify: true}
+		if os.Getenv("LDAP_LOGKEYS") == "1" {
+			ldlog.Debugf("Exporting LDAP TLS keys to /tmp/ldap_keys\n")
+			f, err := os.OpenFile("/tmp/ldap_keys", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			cf.KeyLogWriter = f
+		}
+
+		l.Conn, err = ldap.DialTLS("tcp", l.ldapAddress, cf)
 		if err != nil {
 			return err
 		}
+		ldlog.Debugf("Dialing (TLS): %s\n", l.ldapAddress)
 	} else {
 		l.Conn, err = ldap.DialURL(fmt.Sprintf("ldap://%s", l.ldapAddress))
 		if err != nil {
 			return err
 		}
+		ldlog.Debugf("Dialing: %s\n", fmt.Sprintf("ldap://%s", l.ldapAddress))
 	}
 
 	if l.Kerberos {
@@ -83,10 +101,12 @@ func (l *LDAPConnection) Login() error {
 		if spnMatch != spn && spnMatch != "" {
 			spn = spnMatch
 		}
+		ldlog.Debugln("Binding ...")
 		_, err = l.Conn.GSSAPICCBindCCache(cl, spn)
 		if err != nil {
 			return err
 		}
+		ldlog.Debugln("Bound")
 
 	} else {
 		// u := l.Username + "@" + l.Domain
@@ -104,9 +124,27 @@ func (l *LDAPConnection) Login() error {
 		}
 	}
 
+	l.BaseDN, err = l.baseDN()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (l *LDAPConnection) Close() {
 	l.Conn.Close()
+}
+
+func (l *LDAPConnection) baseDN() (string, error) {
+	sr, err := l.Conn.Search(ldap.NewSearchRequest(
+		"",
+		ldap.ScopeBaseObject, ldap.NeverDerefAliases, 0, 0, false,
+		"(objectClass=*)",
+		[]string{"defaultNamingContext"},
+		nil,
+	))
+	if err != nil {
+		return "", err
+	}
+	return sr.Entries[0].GetAttributeValue("defaultNamingContext"), nil
 }

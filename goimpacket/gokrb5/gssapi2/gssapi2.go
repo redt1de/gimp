@@ -33,6 +33,7 @@ type GSSAPI struct {
 
 // Create new authenticator checksum for kerberos MechToken
 func newAuthenticatorChksum(flags []int) []byte {
+
 	a := make([]byte, 24)
 	binary.LittleEndian.PutUint32(a[:4], 16)
 	for _, i := range flags {
@@ -172,5 +173,6 @@ func (k *GSSAPI) Wrap(payload []byte) ([]byte, error) {
 		return nil, fmt.Errorf("while calculating MAC: %w", err)
 	}
 	t.EC = uint16(len(t.CheckSum))
+
 	return t.Marshal()
 }

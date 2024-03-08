@@ -14,7 +14,7 @@ require (
 	github.com/jcmturner/goidentity/v6 v6.0.1
 	github.com/jcmturner/rpc/v2 v2.0.3
 	github.com/spf13/cobra v1.8.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.19.0
 	h12.io/socks v1.0.3
 )

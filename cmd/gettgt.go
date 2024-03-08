@@ -4,67 +4,54 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"github.com/redt1de/gimp/goimpacket"
 	"github.com/spf13/cobra"
 )
 
 // gettgtCmd represents the gettgt command
 var gettgtCmd = &cobra.Command{
-	Use:   "gettgt",
-	Short: "Request a Ticket Granting Ticket (TGT) from the KDC.",
-	Long:  `Request a Ticket Granting Ticket (TGT) from the KDC and save it as CCACHE file`,
+	Aliases: []string{"tgt"},
+	Short:   "Request a Ticket Granting Ticket (TGT) from the KDC.",
+	Long:    `Request a Ticket Granting Ticket (TGT) from the KDC and save it as CCACHE file`,
+	Args:    cobra.MinimumNArgs(1),
+	Use:     "gettgt [flags] <domain/username[:password]>",
 	Run: func(cmd *cobra.Command, args []string) {
-		// domain, _ := cmd.Flags().GetString("domain")
-		// dcip, _ := cmd.Flags().GetString("dcip")
-		// user, _ := cmd.Flags().GetString("user")
-		// pass, _ := cmd.Flags().GetString("pass")
-		// hash, _ := cmd.Flags().GetString("hash")
-		// ccacheAuth, _ := cmd.Flags().GetString("ccache")
-		// outputfile, _ := cmd.Flags().GetString("outputfile")
-		// kerberos, _ := cmd.Flags().GetBool("kerberos")
+		handlePersistantFlags(cmd)
+		ad, err := goimpacket.NewADAccountFromString(args[len(args)-1])
+		if err != nil {
+			clilog.Errorf("Error parsing target string: %s", err.Error())
+			return
+		}
 
-		// if ccacheAuth != "" {
-		// 	kerberos = true
-		// }
+		outfile, _ := cmd.Flags().GetString("outfile")
+		if outfile == "" {
+			outfile = "./" + ad.Username + ".tgt.ccache"
+		}
+		hash, _ := cmd.Flags().GetString("hash")
+		if hash != "" {
+			ad.Hash = hash
+		}
+		dc, _ := cmd.Flags().GetString("dc")
+		if dc != "" {
+			ad.DC = dc
+		} else {
+			ad.DC = ad.Domain
+		}
 
-		// cl := gokrb5.GetKerberosClient(domain, dcip, user, pass, hash, kerberos, "aes256-cts-hmac-sha1-96", "", 0)
-		// err := cl.Login()
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
+		err = goimpacket.GetTGT(ad, outfile)
+		if err != nil {
+			clilog.Errorf("Error getting TGT: %s", err.Error())
+			return
+		}
+		clilog.Successf("Ticket Granting Ticket saved to %s", outfile)
 
-		// ASReq, err := messages.NewASReqForTGT(cl.Credentials.Domain(), cl.Config, cl.Credentials.CName())
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// ASRep, err := cl.ASExchange(cl.Credentials.Domain(), ASReq, 0)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-
-		// cc, err := ASRep.ToCCache()
-
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		// if outputfile == "" {
-		// 	outputfile = "./" + user + ".tgt.ccache"
-		// }
-		// fmt.Println("[+] Saving TGT to", outputfile)
-		// cc.Export(outputfile)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(gettgtCmd)
-	gettgtCmd.Flags().StringP("ccache", "c", "", "CCACHE file if not using KRB5CCNAME, implies -k")
-	gettgtCmd.Flags().BoolP("kerberos", "k", false, "use kerberos ticket for authentication (KRB5CCNAME|--ccache required)")
-	gettgtCmd.Flags().StringP("dcip", "D", "", "Domain Controller IP address, if null will use FQDN of user domain.")
-	gettgtCmd.Flags().StringP("user", "u", "", "Username to authenticate with")
-	gettgtCmd.Flags().StringP("pass", "p", "", "Password to authenticate with")
+	gettgtCmd.Flags().StringP("dc", "D", "", "Domain Controller, if null will use FQDN of user domain.")
 	gettgtCmd.Flags().StringP("hash", "H", "", "NTLM hash to authenticate with")
-	gettgtCmd.Flags().StringP("domain", "d", "", "Domain to authenticate with")
-	gettgtCmd.Flags().StringP("outputfile", "o", "", "Output file for the TGT, defaults to ./<user>.tgt.ccache")
+	gettgtCmd.Flags().StringP("outfile", "o", "", "Output file for the TGT, defaults to ./<user>.tgt.ccache")
 
-	gettgtCmd.MarkFlagRequired("domain")
 }

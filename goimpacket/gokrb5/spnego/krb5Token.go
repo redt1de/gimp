@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/jcmturner/gofork/encoding/asn1"
+	"github.com/redt1de/dbg"
 	"github.com/redt1de/gimp/goimpacket/gokrb5/asn1tools"
 	"github.com/redt1de/gimp/goimpacket/gokrb5/client"
 	"github.com/redt1de/gimp/goimpacket/gokrb5/credentials"
@@ -26,6 +27,8 @@ const (
 	TOK_ID_KRB_AP_REP = "0200"
 	TOK_ID_KRB_ERROR  = "0300"
 )
+
+var slog = dbg.Get("gokrb5/spnego")
 
 // KRB5Token context token implementation for GSSAPI.
 type KRB5Token struct {

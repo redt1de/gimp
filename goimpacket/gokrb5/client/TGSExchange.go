@@ -217,9 +217,9 @@ func (cl *Client) GetServiceTicketForUserAsCCache(spn string, userRealm string, 
 		return nil, fmt.Errorf("while getting S4U2Self ticket for user: %w", err)
 	}
 
-	if err := userTGSRep.Ticket.DecryptEncPart(cl.Credentials.Keytab(), nil); err != nil {
-		// return tkt, skey, fmt.Errorf("cannot decrypt S4U2Self ticket received: %w", err)
-	}
+	// if err := userTGSRep.Ticket.DecryptEncPart(cl.Credentials.Keytab(), nil); err != nil {
+	// 	// return tkt, skey, fmt.Errorf("cannot decrypt S4U2Self ticket received: %w", err)
+	// }
 	userTGSRep.Ticket.DecryptedEncPart = messages.EncTicketPart{}
 
 	princ := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, spn)

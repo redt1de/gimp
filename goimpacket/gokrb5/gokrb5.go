@@ -31,6 +31,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/jcmturner/gofork/encoding/asn1"
@@ -98,17 +99,20 @@ func GetKerberosClient(domain string, dc string, username string, password strin
 		log.Fatal(err)
 	}
 
-	if ccachePath != "" {
+	if password != "" {
+		cl = client.NewWithPassword(username, domain, password, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
+	} else if ntlm != "" {
+		cl = client.NewWithHash(username, domain, ntlm, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
+	} else {
+		if ccachePath == "" {
+			ccachePath = os.Getenv("KRB5CCNAME")
+		}
 		ccache, _ := credentials.LoadCCache(ccachePath)
-		cl, err = client.NewFromCCache(ccache, c)
+		cl, err = client.NewFromCCacheEx(ccache, c)
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else if password != "" {
-		cl = client.NewWithPassword(username, domain, password, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
-	} else if ntlm != "" {
 
-		cl = client.NewWithHash(username, domain, ntlm, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
 	}
 
 	return cl
@@ -141,17 +145,20 @@ func GetKerberosClientEx(domain string, dc string, username string, password str
 		log.Fatal(err)
 	}
 
-	if ccachePath != "" {
+	if password != "" {
+		cl = client.NewWithPassword(username, domain, password, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
+	} else if ntlm != "" {
+		cl = client.NewWithHash(username, domain, ntlm, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
+	} else {
+		if ccachePath == "" {
+			ccachePath = os.Getenv("KRB5CCNAME")
+		}
 		ccache, _ := credentials.LoadCCache(ccachePath)
 		cl, err = client.NewFromCCacheEx(ccache, c)
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else if password != "" {
-		cl = client.NewWithPassword(username, domain, password, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
-	} else if ntlm != "" {
 
-		cl = client.NewWithHash(username, domain, ntlm, c, client.DisablePAFXFAST(true), client.AssumePreAuthentication(false))
 	}
 
 	return cl
